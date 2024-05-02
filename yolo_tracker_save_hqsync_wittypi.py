@@ -76,6 +76,7 @@ from utils.log import record_log, save_logs
 from utils.oak_cam import bbox_set_exposure_region, set_focus_range
 from utils.save_data import save_crop_metadata, save_full_frame, save_overlay_frame
 from utils.wittypi import WittyPiStatus
+from utils.send_data import send_track_data
 
 # Define optional arguments
 parser = argparse.ArgumentParser()
@@ -350,6 +351,9 @@ with dai.Device(pipeline, maxUsbSpeed=dai.UsbSpeed.HIGH) as device:
                                                                     save_path, args.four_k_resolution))
                             thread_overlay.start()
                             threads.append(thread_overlay)
+                        
+                    if tracklet.status.name == "REMOVED":
+                        send_track_data(tracklet.id, save_path, rec_start_format)
 
             # Update free disk space (MB)
             disk_free = round(psutil.disk_usage("/").free / 1048576)
