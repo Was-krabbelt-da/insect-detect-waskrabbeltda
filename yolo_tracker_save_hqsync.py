@@ -74,6 +74,7 @@ from utils.general import frame_norm, zip_data
 from utils.log import record_log, save_logs
 from utils.oak_cam import bbox_set_exposure_region, set_focus_range
 from utils.save_data import save_crop_metadata, save_full_frame, save_overlay_frame
+from utils.send_data import send_track_data
 
 # Define optional arguments
 parser = argparse.ArgumentParser()
@@ -278,7 +279,6 @@ with dai.Device(pipeline, maxUsbSpeed=dai.UsbSpeed.HIGH) as device:
         # Record until recording time is finished
         # Stop recording early if free disk space drops below threshold
         while time.monotonic() < start_time + REC_TIME and disk_free > MIN_DISKSPACE:
-
             # Get synchronized HQ frame + tracker output (including passthrough detections)
             if q_frame.has() and q_track.has():
                 frame_hq = q_frame.get().getCvFrame()
@@ -329,6 +329,10 @@ with dai.Device(pipeline, maxUsbSpeed=dai.UsbSpeed.HIGH) as device:
                                                                     save_path, args.four_k_resolution))
                             thread_overlay.start()
                             threads.append(thread_overlay)
+                    
+                    print(tracklet.id, tracklet.status.name)
+                    if tracklet.status.name == "REMOVED":
+                        send_track_data(tracklet.id, save_path, rec_start_format)
 
             # Update free disk space (MB)
             disk_free = round(psutil.disk_usage("/").free / 1048576)
@@ -342,13 +346,13 @@ with dai.Device(pipeline, maxUsbSpeed=dai.UsbSpeed.HIGH) as device:
         # Write info on end of recording to log file
         logger.info("Recording %s finished\n", rec_id)
 
-    except KeyboardInterrupt:
-        # Write info on KeyboardInterrupt (Ctrl+C) to log file
-        logger.info("Recording %s stopped by Ctrl+C\n", rec_id)
+    # except KeyboardInterrupt:
+    #     # Write info on KeyboardInterrupt (Ctrl+C) to log file
+    #     logger.info("Recording %s stopped by Ctrl+C\n", rec_id)
 
-    except Exception:
-        # Write info on error + traceback during recording to log file
-        logger.exception("Error during recording %s", rec_id)
+    # except Exception:
+    #     # Write info on error + traceback during recording to log file
+    #     logger.exception("Error during recording %s", rec_id)
 
     finally:
         # Shut down scheduler (wait until currently executing jobs are finished)
@@ -368,4 +372,4 @@ with dai.Device(pipeline, maxUsbSpeed=dai.UsbSpeed.HIGH) as device:
             zip_data(save_path)
 
         # Shut down Raspberry Pi
-        subprocess.run(["sudo", "shutdown", "-h", "now"], check=True)
+        #subprocess.run(["sudo", "shutdown", "-h", "now"], check=True)
