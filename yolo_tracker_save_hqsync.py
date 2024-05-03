@@ -58,6 +58,7 @@ based on open source scripts available at https://github.com/luxonis
 """
 
 import argparse
+from collections import defaultdict
 import json
 import logging
 import subprocess
@@ -120,6 +121,10 @@ LOG_FREQ = 30
 
 # Set recording time (default: 2 minutes)
 REC_TIME = args.min_rec_time * 60
+
+# Set threshold for removing lost tracklets from tracker output from our tracking
+LOST_FRAMES_TILL_REMOVAL = 3 #one second per frame
+lost_frames = defaultdict(int)
 
 # Set logging level and format, write logs to file
 Path("insect-detect/data").mkdir(parents=True, exist_ok=True)
@@ -330,9 +335,19 @@ with dai.Device(pipeline, maxUsbSpeed=dai.UsbSpeed.HIGH) as device:
                             thread_overlay.start()
                             threads.append(thread_overlay)
                     
-                    print(tracklet.id, tracklet.status.name)
-                    if tracklet.status.name == "REMOVED":
-                        send_track_data(tracklet.id, save_path, rec_start_format)
+                    current_track_ids = [tracklet.id for tracklet in tracks]
+                    for track_id in lost_frames.keys():
+                        # Case 1: Tracklet is still tracked
+                        if track_id in current_track_ids:
+                            lost_frames[track_id] = 0
+                            continue
+
+                        # Case 2: Tracklet is lost
+                        lost_frames[track_id] += 1
+                        if lost_frames[track_id] >= LOST_FRAMES_TILL_REMOVAL:
+                            print("Removing ", track_id, tracklet.status.name)
+                            send_track_data(track_id, save_path, rec_start_format)
+                            del lost_frames[track_id]
 
             # Update free disk space (MB)
             disk_free = round(psutil.disk_usage("/").free / 1048576)
