@@ -102,9 +102,11 @@ parser.add_argument("-zip", "--zip_data", action="store_true",
     help="Store data in an uncompressed .zip file for each day and delete original directory.")
 args = parser.parse_args()
 
+REPOSITORY_NAME = "insect-detect-waskrabbeltda"
+
 # Set file paths to the detection model and corresponding config JSON
-MODEL_PATH = Path("insect-detect/models/yolov5n_320_openvino_2022.1_4shave.blob")
-CONFIG_PATH = Path("insect-detect/models/json/yolov5_v7_320.json")
+MODEL_PATH = Path(f"{REPOSITORY_NAME}/models/yolov5n_320_openvino_2022.1_4shave.blob")
+CONFIG_PATH = Path(f"{REPOSITORY_NAME}/models/json/yolov5_v7_320.json")
 
 # Set threshold value required to start and continue a recording
 MIN_DISKSPACE = 100  # minimum free disk space (MB) (default: 100 MB)
@@ -127,10 +129,10 @@ LOST_FRAMES_TILL_REMOVAL = 3 #one second per frame
 lost_frames = defaultdict(int)
 
 # Set logging level and format, write logs to file
-Path("insect-detect/data").mkdir(parents=True, exist_ok=True)
+Path(f"{REPOSITORY_NAME}/data").mkdir(parents=True, exist_ok=True)
 script_name = Path(__file__).stem
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s: %(message)s",
-                    filename=f"insect-detect/data/{script_name}_log.log", encoding="utf-8")
+                    filename=f"{REPOSITORY_NAME}/data/{script_name}_log.log", encoding="utf-8")
 logger = logging.getLogger()
 
 # Shut down Raspberry Pi if free disk space (MB) is lower than threshold
@@ -140,14 +142,14 @@ if disk_free < MIN_DISKSPACE:
     subprocess.run(["sudo", "shutdown", "-h", "now"], check=True)
 
 # Get last recording ID from text file and increment by 1 (create text file for first recording)
-rec_id_file = Path("insect-detect/data/last_rec_id.txt")
+rec_id_file = Path(f"{REPOSITORY_NAME}/data/last_rec_id.txt")
 rec_id = int(rec_id_file.read_text(encoding="utf-8")) + 1 if rec_id_file.exists() else 1
 rec_id_file.write_text(str(rec_id), encoding="utf-8")
 
 # Create directory per day and recording interval to save images + metadata + logs
 rec_start = datetime.now()
 rec_start_format = rec_start.strftime("%Y-%m-%d_%H-%M-%S")
-save_path = Path(f"insect-detect/data/{rec_start.date()}/{rec_start_format}")
+save_path = Path(f"{REPOSITORY_NAME}/data/{rec_start.date()}/{rec_start_format}")
 save_path.mkdir(parents=True, exist_ok=True)
 if args.save_full_frames is not None:
     (save_path / "full").mkdir(parents=True, exist_ok=True)
