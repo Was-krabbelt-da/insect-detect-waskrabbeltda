@@ -316,6 +316,7 @@ with dai.Device(pipeline, maxUsbSpeed=dai.UsbSpeed.HIGH) as device:
 
                 for tracklet in tracks:
                     # Only use tracklets that are currently tracked (not "NEW", "LOST" or "REMOVED")
+                    print(tracklet.id, tracklet.status.name)
                     if tracklet.status.name == "TRACKED":
                         # Get bounding box from passthrough detections
                         bbox_orig = (tracklet.srcImgDetection.xmin, tracklet.srcImgDetection.ymin,
@@ -372,13 +373,13 @@ with dai.Device(pipeline, maxUsbSpeed=dai.UsbSpeed.HIGH) as device:
         # Write info on end of recording to log file
         logger.info("Recording %s finished | Charge level: %s%%\n", rec_id, chargelevel)
 
-    except KeyboardInterrupt:
-        # Write info on KeyboardInterrupt (Ctrl+C) to log file
-        logger.info("Recording %s stopped by Ctrl+C | Charge level: %s%%\n", rec_id, chargelevel)
+    # except KeyboardInterrupt:
+    #     # Write info on KeyboardInterrupt (Ctrl+C) to log file
+    #     logger.info("Recording %s stopped by Ctrl+C | Charge level: %s%%\n", rec_id, chargelevel)
 
-    except Exception:
-        # Write info on error + traceback during recording to log file
-        logger.exception("Error during recording %s | Charge level: %s%%", rec_id, chargelevel)
+    # except Exception:
+    #     # Write info on error + traceback during recording to log file
+    #     logger.exception("Error during recording %s | Charge level: %s%%", rec_id, chargelevel)
 
     finally:
         # Shut down scheduler (wait until currently executing jobs are finished)
@@ -403,4 +404,4 @@ with dai.Device(pipeline, maxUsbSpeed=dai.UsbSpeed.HIGH) as device:
             pijuice.config.SetChargingConfig({"charging_enabled": True})
 
         # Shut down Raspberry Pi
-        subprocess.run(["sudo", "shutdown", "-h", "now"], check=True)
+        # subprocess.run(["sudo", "shutdown", "-h", "now"], check=True)

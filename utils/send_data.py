@@ -2,9 +2,14 @@ import pandas as pd
 from datetime import datetime
 import os
 import requests
+from dotenv import load_dotenv
+
+load_dotenv()
+
+ENDPOINT = os.getenv('ENDPOINT')
+API_TOKEN = os.getenv('API_TOKEN')
 
 def send_track_data(track_id, save_path, rec_start_format):
-    
     metadata = pd.read_csv(os.path.join(save_path, f"{rec_start_format}_metadata.csv"))
     track_data = metadata[metadata['track_ID'] == track_id]
     if track_data.empty:
