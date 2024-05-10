@@ -125,7 +125,7 @@ LOG_FREQ = 30
 REC_TIME = args.min_rec_time * 60
 
 # Set threshold for removing lost tracklets from tracker output from our tracking
-LOST_FRAMES_TILL_REMOVAL = 3 #one second per frame
+LOST_FRAMES_TILL_REMOVAL = 1 #one second per frame
 lost_frames = defaultdict(int)
 
 # Set logging level and format, write logs to file
@@ -300,6 +300,7 @@ with dai.Device(pipeline, maxUsbSpeed=dai.UsbSpeed.HIGH) as device:
                     frame_hq_copy = frame_hq.copy()
 
                 for tracklet in tracks:
+                    print(tracklet.id, tracklet.status.name)
                     # Only use tracklets that are currently tracked (not "NEW", "LOST" or "REMOVED")
                     if tracklet.status.name == "TRACKED":
                         # Get bounding box from passthrough detections
@@ -337,19 +338,24 @@ with dai.Device(pipeline, maxUsbSpeed=dai.UsbSpeed.HIGH) as device:
                             thread_overlay.start()
                             threads.append(thread_overlay)
                     
-                    current_track_ids = [tracklet.id for tracklet in tracks]
-                    for track_id in lost_frames.keys():
-                        # Case 1: Tracklet is still tracked
-                        if track_id in current_track_ids:
-                            lost_frames[track_id] = 0
-                            continue
+                    # Logic to send newly lost tracking id images to API
+                    current_track_ids = [tracklet.id for tracklet in tracks if tracklet.status.name == 'TRACKED']
+                    print(f"Current track ids: {current_track_ids}")
+                    
+                    lost_ids = set(lost_frames.keys()) - set(current_track_ids)
+                    print(f"Lost ids: {lost_ids}")
+                    
+                    for track_id in current_track_ids:
+                        lost_frames[track_id] = 0
 
-                        # Case 2: Tracklet is lost
+                    for track_id in lost_ids:
                         lost_frames[track_id] += 1
                         if lost_frames[track_id] >= LOST_FRAMES_TILL_REMOVAL:
                             print("Removing ", track_id, tracklet.status.name)
                             send_track_data(track_id, save_path, rec_start_format)
                             del lost_frames[track_id]
+
+                    print(lost_frames.items())
 
             # Update free disk space (MB)
             disk_free = round(psutil.disk_usage("/").free / 1048576)
