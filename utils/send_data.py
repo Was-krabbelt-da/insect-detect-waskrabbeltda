@@ -1,3 +1,4 @@
+from math import e
 import pandas as pd
 from datetime import datetime
 import os
@@ -57,5 +58,9 @@ def send_track_data(track_id, save_path, rec_start_format):
     payload = {'start_date': start_date, 'end_date': end_date, 'duration_s': duration}
     files = [('files', open(fp, 'rb')) for fp in file_paths]
 
-    response = post_with_retry(endpoint, payload, files)
-    print(response)
+    try:
+        response = post_with_retry(endpoint, payload, files)
+    except requests.exceptions.RequestException as e:
+        print(e)
+
+    print(f"Received response {response.status_code} for track_id {track_id}")
