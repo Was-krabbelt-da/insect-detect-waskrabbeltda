@@ -62,5 +62,6 @@ def send_track_data(track_id, save_path, rec_start_format):
         response = post_with_retry(endpoint, payload, files)
     except requests.exceptions.RequestException as e:
         print(e)
+        return
 
     print(f"Received response {response.status_code} for track_id {track_id}")
