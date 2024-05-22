@@ -125,7 +125,7 @@ LOG_FREQ = 30
 REC_TIME = args.min_rec_time * 60
 
 # Set threshold for removing lost tracklets from tracker output from our tracking
-LOST_FRAMES_TILL_REMOVAL = 1 #one second per frame
+LOST_FRAMES_TILL_REMOVAL = 10  # one second per frame
 lost_frames = defaultdict(int)
 
 # Set logging level and format, write logs to file
@@ -179,7 +179,7 @@ pipeline = dai.Pipeline()
 
 # Create and configure color camera node
 cam_rgb = pipeline.create(dai.node.ColorCamera)
-#cam_rgb.setImageOrientation(dai.CameraImageOrientation.ROTATE_180_DEG)  # rotate image 180°
+# cam_rgb.setImageOrientation(dai.CameraImageOrientation.ROTATE_180_DEG)  # rotate image 180°
 cam_rgb.setResolution(dai.ColorCameraProperties.SensorResolution.THE_4_K)
 if not args.four_k_resolution:
     cam_rgb.setIspScale(1, 2)     # downscale 4K to 1080p resolution -> HQ frames
@@ -210,7 +210,7 @@ nn.setNumInferenceThreads(2)
 # Create and configure object tracker node and define inputs
 tracker = pipeline.create(dai.node.ObjectTracker)
 tracker.setTrackerType(dai.TrackerType.ZERO_TERM_IMAGELESS)
-#tracker.setTrackerType(dai.TrackerType.SHORT_TERM_IMAGELESS)  # better for low fps
+# tracker.setTrackerType(dai.TrackerType.SHORT_TERM_IMAGELESS)  # better for low fps
 tracker.setTrackerIdAssignmentPolicy(dai.TrackerIdAssignmentPolicy.UNIQUE_ID)
 nn.passthrough.link(tracker.inputTrackerFrame)
 nn.passthrough.link(tracker.inputDetectionFrame)
@@ -337,20 +337,34 @@ with dai.Device(pipeline, maxUsbSpeed=dai.UsbSpeed.HIGH) as device:
                                                                     save_path, args.four_k_resolution))
                             thread_overlay.start()
                             threads.append(thread_overlay)
-                    
+
                     # Logic to send newly lost tracking id images to API
+                    # We experienced inconsistent behaviour when only depending on the status of the tracklet turning to REMOVED
+                    # Therefore we also perform our own tracking of currently tracked tracklets
+                    # And if a tracklet has not been tracked for the last LOST_FRAMES_TILL_REMOVAL frames, we remove it
+                    # The value of LOST_FRAMES_TILL_REMOVAL is a tradeoff between having quick uploads to the dashboard
+                    # once an insect has left the camera and not tracking an insect twice
+                    removed_ids = [
+                        tracklet.id
+                        for tracklet in tracks
+                        if tracklet.status.name == "REMOVED"
+                    ]
                     current_track_ids = [tracklet.id for tracklet in tracks if tracklet.status.name == 'TRACKED']
                     print(f"Current track ids: {current_track_ids}")
-                    
+                    print(f"Removed ids: {removed_ids}")
+
                     lost_ids = set(lost_frames.keys()) - set(current_track_ids)
                     print(f"Lost ids: {lost_ids}")
-                    
+
                     for track_id in current_track_ids:
                         lost_frames[track_id] = 0
 
                     for track_id in lost_ids:
                         lost_frames[track_id] += 1
-                        if lost_frames[track_id] >= LOST_FRAMES_TILL_REMOVAL:
+                        if (
+                            lost_frames[track_id] >= LOST_FRAMES_TILL_REMOVAL
+                            or track_id in removed_ids
+                        ):
                             print("Removing ", track_id, tracklet.status.name)
                             send_track_data(track_id, save_path, rec_start_format)
                             del lost_frames[track_id]
@@ -395,4 +409,4 @@ with dai.Device(pipeline, maxUsbSpeed=dai.UsbSpeed.HIGH) as device:
             zip_data(save_path)
 
         # Shut down Raspberry Pi
-        #subprocess.run(["sudo", "shutdown", "-h", "now"], check=True)
+        # subprocess.run(["sudo", "shutdown", "-h", "now"], check=True)
